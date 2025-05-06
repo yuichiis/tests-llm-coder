@@ -2,4 +2,4 @@
 
 prompt:
 
->> Create an Invaders game using javascript, HTML and CSS
+> Create an Invaders game using javascript, HTML and CSS
