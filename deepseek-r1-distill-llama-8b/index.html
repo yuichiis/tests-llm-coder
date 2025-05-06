@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invaders Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background-color: black;
+        }
+
+        #ship {
+            position: absolute;
+            width: 40px;
+            height: 20px;
+            background-color: yellow;
+            left: 400px;
+            bottom: 500px;
+        }
+
+        .alien {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: green;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score">Score: 0</div>
+        <div id="ship"></div>
+        <div id="game-over" style="display: none;">
+            Game Over! Score: <span id="final-score">0</span>
+        </div>
+    </div>
+
+    <script>
+        const ship = document.getElementById('ship');
+        const aliens = [];
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+
+        let isGameOver = false;
+        let score = 0;
+        let leftPosition = 400;
+
+        // Ship movement
+        document.addEventListener('keydown', (e) => {
+            if (!isGameOver) {
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        if (leftPosition > 20) {
+                            leftPosition -= 30;
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (leftPosition < 780) {
+                            leftPosition += 30;
+                        }
+                        break;
+                }
+                
+                ship.style.left = `${leftPosition}px`;
+            }
+        });
+
+        // Create aliens
+        function spawnAlien() {
+            const containerWidth = document.getElementById('game-container').offsetWidth;
+            const height = Math.random() * (0 - 600);
+            
+            const alien = document.createElement('div');
+            alien.className = 'alien';
+            alien.style.top = `${height}px`;
+            alien.style.left = `${Math.random() * (containerWidth - 60)}px`;
+            aliens.push(alien);
+            document.getElementById('game-container').appendChild(alien);
+
+            // Remove alien after reaching bottom
+            setTimeout(() => {
+                if (!isGameOver) {
+                    alien.remove();
+                }
+            }, 6000);
+        }
+
+        // Game loop
+        setInterval(() => {
+            if (!isGameOver) {
+                score++;
+                scoreElement.textContent = `Score: ${score}`;
+
+                // Spawn new aliens periodically
+                if (Math.random() < 0.05) {
+                    spawnAlien();
+                }
+
+                // Check for collisions
+                aliens.forEach((alien, index) => {
+                    const rect1 = ship.getBoundingClientRect();
+                    const rect2 = alien.getBoundingClientRect();
+
+                    if (
+                        rect1.left < rect2.right &&
+                        rect1.right > rect2.left &&
+                        rect1.top < rect2.bottom &&
+                        rect1.bottom > rect2.top
+                    ) {
+                        // Ship collision with alien
+                        if (!isGameOver) {
+                            gameOver();
+                        }
+                        return;
+                    }
+                });
+            }
+        }, 50);
+
+        // Game Over function
+        function gameOver() {
+            isGameOver = true;
+            gameOverElement.style.display = 'block';
+            finalScoreElement.textContent = score;
+            
+            // Reset game state
+            resetGame();
+        }
+
+        // Reset game
+        function resetGame() {
+            isGameOver = false;
+            score = 0;
+            scoreElement.textContent = `Score: ${score}`;
+            gameOverElement.style.display = 'none';
+
+            // Remove all existing aliens
+            aliens.forEach(alien => alien.remove());
+            aliens.length = 0;
+
+            // Reset ship position
+            leftPosition = 400;
+            ship.style.left = `${leftPosition}px`;
+        }
+    </script>
+</body>
+</html>

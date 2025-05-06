@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invaders Game</title>
+  <style>
+    /* CSS styles for the game */
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      background: #000;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <script>
+    // Get canvas and context
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Player setup
+    const player = {
+      x: canvas.width / 2 - 15,
+      y: canvas.height - 30,
+      width: 30,
+      height: 20,
+      speed: 5
+    };
+
+    // Game elements arrays
+    let bullets = [];
+    let invaders = [];
+    let invaderSpeed = 1;
+    let invaderDirection = 1; // 1 = moving right, -1 = moving left
+
+    // Manage key presses
+    const keys = {};
+    document.addEventListener("keydown", (e) => {
+      keys[e.code] = true;
+      if (e.code === "Space") {
+        // Shoot a bullet from the center of the player's ship
+        bullets.push({
+          x: player.x + player.width / 2 - 2,
+          y: player.y,
+          width: 4,
+          height: 10,
+          speed: 7
+        });
+      }
+    });
+    document.addEventListener("keyup", (e) => {
+      keys[e.code] = false;
+    });
+
+    // Create an array of invaders in a grid formation
+    function createInvaders() {
+      invaders = [];
+      const rows = 4;
+      const cols = 10;
+      const invaderWidth = 30;
+      const invaderHeight = 20;
+      const spacing = 10;
+      const offsetX = 30;
+      const offsetY = 30;
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          invaders.push({
+            x: offsetX + col * (invaderWidth + spacing),
+            y: offsetY + row * (invaderHeight + spacing),
+            width: invaderWidth,
+            height: invaderHeight
+          });
+        }
+      }
+    }
+
+    // Update game state: player, bullets, invaders, and collisions
+    function update() {
+      // Player movement
+      if (keys["ArrowLeft"] && player.x > 0) {
+        player.x -= player.speed;
+      }
+      if (keys["ArrowRight"] && player.x + player.width < canvas.width) {
+        player.x += player.speed;
+      }
+
+      // Update bullets positions; remove ones off-screen
+      for (let i = 0; i < bullets.length; i++) {
+        bullets[i].y -= bullets[i].speed;
+        if (bullets[i].y + bullets[i].height < 0) {
+          bullets.splice(i, 1);
+          i--;
+        }
+      }
+
+      // Move invaders and check for canvas edge collision
+      let shouldReverse = false;
+      for (const invader of invaders) {
+        invader.x += invaderSpeed * invaderDirection;
+        if (invader.x + invader.width >= canvas.width || invader.x <= 0) {
+          shouldReverse = true;
+        }
+      }
+      if (shouldReverse) {
+        invaderDirection *= -1;
+        for (const invader of invaders) {
+          invader.y += 10; // Move down when reaching an edge
+        }
+      }
+
+      // Check collision between bullets and invaders
+      for (let i = 0; i < bullets.length; i++) {
+        const bullet = bullets[i];
+        for (let j = 0; j < invaders.length; j++) {
+          const invader = invaders[j];
+          if (
+            bullet.x < invader.x + invader.width &&
+            bullet.x + bullet.width > invader.x &&
+            bullet.y < invader.y + invader.height &&
+            bullet.y + bullet.height > invader.y
+          ) {
+            // Remove bullet and invader on collision
+            bullets.splice(i, 1);
+            invaders.splice(j, 1);
+            i--;
+            break;
+          }
+        }
+      }
+    }
+
+    // Draw the player, invaders, and bullets
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw player (white rectangle)
+      ctx.fillStyle = "white";
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+
+      // Draw invaders (lime green rectangles)
+      ctx.fillStyle = "lime";
+      for (const invader of invaders) {
+        ctx.fillRect(invader.x, invader.y, invader.width, invader.height);
+      }
+
+      // Draw bullets (red rectangles)
+      ctx.fillStyle = "red";
+      for (const bullet of bullets) {
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      }
+    }
+
+    // Main game loop: update state, then draw, then loop again
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start the game when the window loads
+    window.onload = () => {
+      createInvaders();
+      gameLoop();
+    };
+  </script>
+</body>
+</html>

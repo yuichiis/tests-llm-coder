@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #111;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 600px; /* Adjust as needed */
+            box-sizing: border-box;
+        }
+
+        #gameCanvas {
+            background: radial-gradient(circle, #000046, #000000); /* Dark gradient background */
+            border: 4px solid #3b82f6; /* Tailwind's blue-500 */
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); /* blue-500 */
+            border-radius: 16px; /* Rounded corners */
+            width: 100%; /* Responsive width */
+            height: auto;
+            max-height: 80vh; /* Max height to maintain aspect ratio and prevent overflow*/
+            aspect-ratio: 3/4;
+        }
+
+        /* Game Over Screen Styles */
+        .game-over-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.5rem;
+            z-index: 10;
+            display: none; /* Hidden by default */
+        }
+        .game-over-content {
+          border: 4px solid #f87171;
+          border-radius: 8px;
+          padding: 16px;
+
+        }
+
+        #restartButton, .difficulty-button, #toggleSoundButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            color: white;
+            background-color: #3b82f6; /* Tailwind's blue-500 */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+            transition: background-color 0.3s ease;
+            margin: 4px;
+        }
+
+        #restartButton:hover, .difficulty-button:hover, #toggleSoundButton:hover {
+            background-color: #2563eb; /* Tailwind's blue-700 */
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+
+        .difficulty-button.active {
+            background-color: #1e40af; /* Tailwind's blue-800 */
+            box-shadow: 0 0 5px #fff;
+        }
+
+        #toggleSoundButton.active {
+            background-color: #1e40af; /* Tailwind's blue-800 */
+            box-shadow: 0 0 5px #fff;
+        }
+
+        .game-info {
+            color: #fff;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+
+        .score-display {
+              border: 2px solid;
+              border-radius: 8px;
+              padding: 8px;
+              margin-left: 10px;
+              min-width: 80px;
+
+        }
+         .wave-display {
+            border: 2px solid;
+            border-radius: 8px;
+            padding: 8px;
+            margin-right: 10px;
+             min-width: 80px;
+
+        }
+
+        .instructions-box {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background-color: rgba(0, 0, 0, 0.9);
+          border: 4px solid #3b82f6;
+          border-radius: 8px;
+          padding: 1rem;
+          color: #fff;
+          z-index: 11;
+          text-align: center;
+          max-width: 80%;
+        }
+
+        .instructions-box h2 {
+          font-size: 1.2rem;
+          margin-bottom: 0.5rem;
+          color: #ffdb58;
+        }
+        .instructions-box p{
+            font-size: 0.6rem;
+            margin-bottom: 0.5rem;
+
+        }
+
+        .instructions-box ul {
+          list-style: none;
+          padding: 0;
+          margin-bottom: 1rem;
+            font-size: 0.6rem;
+
+        }
+
+        .instructions-box li {
+          margin-bottom: 0.25rem;
+            font-size: 0.6rem;
+
+        }
+
+        .instructions-box button {
+          padding: 0.5rem 1rem;
+          background-color: #3b82f6;
+          color: #fff;
+          font-family: 'Press Start 2P', cursive;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+          font-size: 0.75rem;
+          border: none;
+        }
+
+        .instructions-box button:hover {
+          background-color: #2563eb;
+        }
+        @media (min-width: 640px) {
+        .instructions-box h2 {
+            font-size: 1.5rem;
+        }
+        .instructions-box ul {
+            font-size: 0.8rem;
+
+        }
+        .instructions-box p{
+                font-size: 0.8rem;
+        }
+
+        .instructions-box li {
+          margin-bottom: 0.25rem;
+              font-size: 0.8rem;
+
+        }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-info">
+            <div class = "score-display">Score: <span id="score">0</span></div>
+            <div class = "wave-display">Wave: <span id="wave">1</span></div>
+        </div>
+        <div class="difficulty-buttons">
+            <button class="difficulty-button" data-difficulty="easy">Easy</button>
+            <button class="difficulty-button" data-difficulty="medium">Medium</button>
+            <button class="difficulty-button" data-difficulty="hard">Hard</button>
+        </div>
+        <button id="toggleSoundButton">Toggle Sound</button>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="game-over-overlay">
+            <div class = "game-over-content">
+                <h2>Game Over</h2>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <button id="restartButton">Restart</button>
+            </div>
+        </div>
+         <div class="instructions-box" id="instructions">
+              <h2>How to Play</h2>
+              <ul>
+                <li>Use the left and right arrow keys to move your spaceship.</li>
+                <li>Press the spacebar to shoot.</li>
+                <li>Destroy all of the aliens in a wave to advance to the next wave.</li>
+                <li>Avoid being hit by the aliens or their projectiles.</li>
+              </ul>
+                <p>Choose a difficulty level and press "Restart" to start.</p>
+
+              <button id="close-instructions">Got it!</button>
+            </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameOverOverlay = document.querySelector('.game-over-overlay');
+        const restartButton = document.getElementById('restartButton');
+        const scoreDisplay = document.getElementById('score');
+        const waveDisplay = document.getElementById('wave');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const difficultyButtons = document.querySelectorAll('.difficulty-button');
+        const toggleSoundButton = document.getElementById('toggleSoundButton');
+        const instructionsBox = document.getElementById('instructions');
+        const closeInstructionsButton = document.getElementById('close-instructions');
+
+        let dimensions = { width: 0, height: 0 };
+        const updateDimensions = () => {
+              const containerElement = document.querySelector('.container');
+              const width = Math.min(containerElement.clientWidth, 600); // Max width of 600px
+              const height = width * (4 / 3); // Maintain aspect ratio
+              dimensions = { width, height };
+
+              canvas.width = dimensions.width;
+              canvas.height = dimensions.height;
+            };
+
+        updateDimensions();
+        const resizeObserver = new ResizeObserver(updateDimensions);
+        resizeObserver.observe(document.querySelector('.container'));
+        window.addEventListener('resize', updateDimensions);
+
+
+        let player;
+        let bullets = [];
+        let enemies = [];
+        let score = 0;
+        let wave = 1;
+        let gameRunning = false;
+        let animationId;
+        let difficulty = 'medium';  // Default difficulty
+        let enemySpeed = 1;
+        let enemyFireRate = 0.005; // Chance per frame of an enemy firing
+        let playerFireRate = 300;  //ms
+        let lastFireTime = 0;
+        let soundEnabled = false;
+        let initialEnemyCountForWave = 0; // To track initial number of enemies in a wave
+        let enemiesDestroyedThisWave = 0; // To track destroyed enemies in current wave
+
+
+        // --- Sound Effects (Tone.js) ---
+        const shooterSound = new Tone.Synth({
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.5 }
+        }).toDestination();
+
+        const explosionSound = new Tone.Synth({ // Changed to Tone.Synth
+            oscillator: { type: 'square' },       // Using square wave
+            envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.1 } // Short envelope
+        }).toDestination();
+
+        const gameOverSound = new Tone.MembraneSynth({
+            pitchDecay: 0.05,
+            octaves: 10,
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4, attackCurve: 'exponential' }
+        }).toDestination();
+
+
+        // --- Helper Functions ---
+
+        function random(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Check for collision between two rectangles
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // --- Game Object Creation ---
+
+        function createPlayer() {
+            return {
+                x: canvas.width / 2 - 25,
+                y: canvas.height - 60,
+                width: 50,
+                height: 40,
+                speed: 5, // Increased player speed
+                color: '#3b82f6' // Tailwind's blue-500
+            };
+        }
+
+        function createBullet(x, y, isPlayer = true) {
+            return {
+                x: x,
+                y: y,
+                width: 8, // Increased bullet width
+                height: 15,
+                speed: isPlayer? -7: 4, // Negative speed for upwards, positive for downwards
+                color: isPlayer? '#f59e0b': '#ef4444', // Tailwind's amber-500 and red-500
+                isPlayer: isPlayer, //track origin
+            };
+        }
+
+        function createEnemy(x, y, type = 'basic') {
+          let width, height, color;
+            switch (type) {
+              case 'basic':
+              default:
+                width = 30;
+                height = 20;
+                color = '#84cc16'; // Tailwind's lime-500
+                break;
+
+              case 'fast':
+                width = 20;
+                height = 15;
+                color = '#f43f5e';  // Tailwind's rose-500
+                break;
+
+              case 'tough':
+                  width = 40;
+                  height = 30;
+                  color: '#a855f7';  // Tailwind's purple-500
+                  break;
+          }
+            return {
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                speed: enemySpeed,
+                color: color, // Tailwind's lime-500
+                type: type
+            };
+        }
+
+        // --- Enemy Spawning ---
+        function spawnEnemies() {
+            enemies = []; // Clear existing enemies
+            enemiesDestroyedThisWave = 0; // Reset counter for new wave
+            initialEnemyCountForWave = 0; // Reset to recount
+
+            const enemyRows = wave < 5 ? wave : 5; // Max 5 rows of enemies
+            const enemiesPerRow = 8;
+            const enemySpacingX = (canvas.width - 100) / enemiesPerRow;
+            const enemySpacingY = 40;
+
+            for (let i = 0; i < enemyRows; i++) {
+                 for (let j = 0; j < enemiesPerRow; j++) {
+                        let type = 'basic';
+                        if(wave > 3){
+                            const rand = Math.random();
+                            if (rand < 0.2) { // 20% chance
+                                type = 'fast';
+                            } else if (rand < 0.4) { // another 20% chance (cumulative 40%)
+                                type = 'tough';
+                            }
+                        }
+                    const enemyX = 50 + j * enemySpacingX;
+                    const enemyY = 50 + i * enemySpacingY;
+                    enemies.push(createEnemy(enemyX, enemyY, type));
+                }
+            }
+            initialEnemyCountForWave = enemies.length; // Store initial enemy count
+        }
+
+        // --- Drawing Functions ---
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            // Spaceship shape (simple, can be improved)
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawBullet(bullet) {
+            ctx.fillStyle = bullet.color;
+            ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        }
+
+       function drawEnemy(enemy) {
+            ctx.fillStyle = enemy.color;
+            // Simple rectangle for enemy. Can be made fancier.
+            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        }
+
+        // --- Update Functions ---
+        function updatePlayer() {
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x + player.width < canvas.width) {
+                player.x += player.speed;
+            }
+            if (keys['Space']) {
+                const currentTime = Date.now();
+                if(currentTime - lastFireTime >= playerFireRate){
+                     bullets.push(createBullet(player.x + player.width / 2 - 4, player.y)); // Adjusted x for wider bullet
+                     if(soundEnabled){
+                        shooterSound.triggerAttackRelease('C4', '16n');
+                     }
+
+                     lastFireTime = currentTime;
+                }
+            }
+        }
+
+        function updateBullets() {
+            bullets.forEach((bullet, index) => {
+                bullet.y += bullet.speed / 2; // Bullets are now 50% slower
+                // Remove bullets that go off-screen
+                if (bullet.y + bullet.height < 0 || bullet.y > canvas.height) {
+                    bullets.splice(index, 1);
+                }
+            });
+        }
+
+        function updateEnemies() {
+            enemies.forEach((enemy, index) => {
+                enemy.y += enemy.speed / 4; // Aliens are now 50% slower than before (originally divided by 2 and now by 4 in total)
+
+                // Randomly fire enemy bullets
+                if (Math.random() < enemyFireRate) {
+                    bullets.push(createBullet(enemy.x + enemy.width / 2 - 4, enemy.y + enemy.height/2, false)); // Adjusted x for wider bullet and y to start from center
+                }
+
+                // Game over if any enemy reaches the player
+                if (enemy.y + enemy.height >= canvas.height) {
+                    endGame();
+                }
+            });
+        }
+
+         function checkBulletCollisions() {
+          for (let i = bullets.length - 1; i >= 0; i--) {
+            const bullet = bullets[i];
+            if(bullet.isPlayer){ // Only player bullets can hurt enemies.
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                  const enemy = enemies[j];
+                  if (checkCollision(bullet, enemy)) {
+                    bullets.splice(i, 1);
+                     if (enemy.type === 'tough') {
+                        // 'Tough' enemies become 'basic' when hit
+                         enemies[j] = createEnemy(enemy.x, enemy.y, 'basic');
+                     } else {
+                        enemies.splice(j, 1);
+                        score += (enemy.type === 'fast') ? 20: 10; // fast enemy gives more points
+                        scoreDisplay.textContent = score; // Update the score display
+                         if (soundEnabled) {
+                            explosionSound.triggerAttackRelease('C4', '8n'); // EXPLOSION SOUND RE-ENABLED
+                        }
+                     }
+                    break; // Important: Break after handling collision
+                  }
+                }
+            }
+            else{ // Check collision with player
+                if(checkCollision(bullet, player)){
+                    endGame();
+                }
+
+            }
+          }
+        }
+
+        // --- Input Handling ---
+
+        let keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // --- Game Loop ---
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update game elements
+            updatePlayer();
+            updateBullets();
+            updateEnemies();
+            checkBulletCollisions(); //check collisions
+
+            // Draw everything
+            drawPlayer();
+            bullets.forEach(drawBullet);
+            enemies.forEach(drawEnemy);
+
+             // Check if all enemies are destroyed to advance wave (REVERTED to original condition)
+             if (enemies.length === 0) {
+                wave++;
+                waveDisplay.textContent = wave;
+                spawnEnemies();
+            }
+
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Game Start/End ---
+
+        function startGame() {
+            if(gameRunning) return;
+            // Reset game state
+            player = createPlayer();
+            bullets = [];
+            enemies = [];
+            score = 0;
+            wave = 1;
+            scoreDisplay.textContent = score;
+            waveDisplay.textContent = wave;
+            gameRunning = true;
+            gameOverOverlay.style.display = 'none';
+            spawnEnemies();
+            gameLoop();
+             if (soundEnabled) {
+              Tone.start();
+            }
+            instructionsBox.style.display = 'none';
+
+        }
+
+        function endGame() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+             if (soundEnabled) {
+                  gameOverSound.triggerAttackRelease('C2', '2n');
+             }
+            finalScoreDisplay.textContent = score;
+            gameOverOverlay.style.display = 'flex';
+        }
+
+        // Event Listeners for Buttons
+        restartButton.addEventListener('click', startGame);
+
+        difficultyButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                difficulty = this.dataset.difficulty;
+                difficultyButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                // Adjust game parameters based on difficulty
+                switch (difficulty) {
+                    case 'easy':
+                        enemySpeed = 0.5;
+                        enemyFireRate = 0.0025; // Reduced enemy fire rate for easy
+                        playerFireRate = 400;
+                        break;
+                    case 'medium':
+                        enemySpeed = 1;
+                        enemyFireRate = 0.005; // Reduced enemy fire rate for medium
+                        playerFireRate = 300;
+                        break;
+                    case 'hard':
+                        enemySpeed = 1.25; // Reduced from 1.5 to make it slightly easier
+                        enemyFireRate = 0.0075; // Reduced from 0.01 to make it slightly easier
+                        playerFireRate = 200;
+                        break;
+                }
+            });
+        });
+        document.querySelector(`[data-difficulty="${difficulty}"]`).classList.add('active');
+
+        toggleSoundButton.addEventListener('click', () => {
+          soundEnabled = !soundEnabled;
+          toggleSoundButton.classList.toggle('active', soundEnabled);
+          if (soundEnabled) {
+            Tone.start();
+          }
+        });
+
+        closeInstructionsButton.addEventListener('click', () => {
+          instructionsBox.style.display = 'none';
+           if (!gameRunning) {
+             startGame();
+           }
+        });
+
+        // --- Initial Setup ---
+        //startGame(); // Start the game when the page loads - removed to start on button press
+    </script>
+</body>
+</html>
