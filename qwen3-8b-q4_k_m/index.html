@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invaders Game</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: black;
+      overflow: hidden;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      background-color: black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Set canvas size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let player = {
+      x: canvas.width / 2,
+      y: canvas.height - 50,
+      width: 40,
+      height: 20,
+      color: "white"
+    };
+
+    let enemies = [];
+    const enemyWidth = 30;
+    const enemyHeight = 20;
+    const enemySpeed = 1;
+
+    // Initialize enemies
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 10; col++) {
+        enemies.push({
+          x: 50 + col * (enemyWidth + 10),
+          y: 50 + row * (enemyHeight + 10),
+          width: enemyWidth,
+          height: enemyHeight,
+          color: "red"
+        });
+      }
+    }
+
+    let bullets = [];
+    let score = 0;
+    let leftPressed = false;
+    let rightPressed = false;
+    let enemyDirection = 1;
+
+    // Key events
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") leftPressed = true;
+      else if (e.key === "ArrowRight") rightPressed = true;
+      else if (e.key === " ") {
+        bullets.push({
+          x: player.x + player.width / 2,
+          y: player.y,
+          width: 5,
+          height: 10,
+          color: "yellow",
+          speed: -8
+        });
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft") leftPressed = false;
+      else if (e.key === "ArrowRight") rightPressed = false;
+    });
+
+    // Game loop
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Player movement
+      if (leftPressed) player.x -= 5;
+      if (rightPressed) player.x += 5;
+      player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+      updateEnemies();
+      drawPlayer();
+      drawEnemies();
+      updateBullets();
+      drawBullets();
+      checkCollisions();
+
+      // Draw score
+      ctx.fillStyle = "white";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+
+    function updateEnemies() {
+      for (let enemy of enemies) {
+        enemy.x += enemySpeed * enemyDirection;
+      }
+
+      // Check if any enemy hit the edge
+      let hitEdge = false;
+      for (let enemy of enemies) {
+        if (
+          enemy.x < 0 ||
+          enemy.x + enemy.width > canvas.width
+        ) {
+          hitEdge = true;
+          break;
+        }
+      }
+
+      if (hitEdge) {
+        // Move all enemies down and reverse direction
+        for (let enemy of enemies) {
+          enemy.y += enemyHeight + 10;
+        }
+        enemyDirection *= -1;
+      }
+    }
+
+    function drawEnemies() {
+      enemies.forEach(enemy => {
+        ctx.fillStyle = enemy.color;
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+      });
+    }
+
+    function updateBullets() {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        let bullet = bullets[i];
+        bullet.y += bullet.speed;
+
+        // Remove if off screen
+        if (bullet.y < 0) {
+          bullets.splice(i, 1);
+        }
+      }
+    }
+
+    function drawBullets() {
+      bullets.forEach(bullet => {
+        ctx.fillStyle = bullet.color;
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      });
+    }
+
+    function checkCollisions() {
+      // Bullet vs Enemy collision
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        let bullet = bullets[i];
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          let enemy = enemies[j];
+
+          if (
+            bullet.x < enemy.x + enemy.width &&
+            bullet.x + bullet.width > enemy.x &&
+            bullet.y < enemy.y + enemy.height &&
+            bullet.y + bullet.height > enemy.y
+          ) {
+            bullets.splice(i, 1);
+            enemies.splice(j, 1);
+            score += 10;
+            break;
+          }
+        }
+      }
+
+      // Enemy reaches bottom (Game Over)
+      for (let enemy of enemies) {
+        if (enemy.y + enemy.height > canvas.height) {
+          alert("Game Over! Your Score: " + score);
+          document.location.reload();
+          return;
+        }
+      }
+    }
+
+    gameLoop(); // Start the game loop
+  </script>
+</body>
+</html>
