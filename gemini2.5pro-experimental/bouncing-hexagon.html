@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Bouncing Balls in a Spinning Hexagon</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column; /* Stack controls on top of canvas */
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #f0f0f0;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #2c2c2c;
+            border-radius: 8px;
+            border: 2px solid #555;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            background-color: #00faff;
+            border: none;
+            border-radius: 5px;
+            color: #1a1a1a;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #5fffff;
+        }
+        canvas {
+            border: 2px solid #555;
+            background-color: #222;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div class="control-group">
+            <label for="rotationSlider">Rotation Speed:</label>
+            <input type="range" id="rotationSlider" min="0" max="0.02" step="0.001" value="0.005">
+            <span id="speedValue">0.005</span>
+        </div>
+        <button id="addBallButton">Add Ball</button>
+    </div>
+    
+    <canvas id="simulationCanvas"></canvas>
+
+    <script>
+        // --- Setup ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const rotationSlider = document.getElementById('rotationSlider');
+        const speedValueSpan = document.getElementById('speedValue');
+        const addBallButton = document.getElementById('addBallButton');
+
+        canvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+        canvas.height = canvas.width;
+
+
+        // --- Tweakable Parameters ---
+        const GRAVITY = 0.2;
+        const FRICTION = 0.85; // Coefficient of restitution
+
+        // --- Hexagon Object ---
+        const hexagon = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: canvas.width / 2 - 30, // Radius from center to a vertex
+            angle: 0,
+            rotationSpeed: parseFloat(rotationSlider.value),
+
+            update: function() {
+                this.angle += this.rotationSpeed;
+            },
+
+            getVertices: function() {
+                const vertices = [];
+                for (let i = 0; i < 6; i++) {
+                    const angle = this.angle + (Math.PI / 3) * i;
+                    const x = this.x + this.size * Math.cos(angle);
+                    const y = this.y + this.size * Math.sin(angle);
+                    vertices.push({ x, y });
+                }
+                return vertices;
+            },
+
+            draw: function() {
+                const vertices = this.getVertices();
+                ctx.beginPath();
+                ctx.moveTo(vertices[0].x, vertices[0].y);
+                for (let i = 1; i < 6; i++) {
+                    ctx.lineTo(vertices[i].x, vertices[i].y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = '#00faff';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+        };
+
+        // --- Ball Management ---
+        let balls = [];
+        const ballColors = ['#ff477e', '#ffdd47', '#47ff95', '#47d1ff'];
+
+        function createBall() {
+            return {
+                x: canvas.width / 2,
+                y: canvas.height / 3, // Start slightly higher
+                radius: 15,
+                dx: (Math.random() - 0.5) * 8, // Random initial horizontal speed
+                dy: (Math.random() - 0.5) * 8, // Random initial vertical speed
+                color: ballColors[balls.length % ballColors.length],
+
+                update: function() {
+                    this.dy += GRAVITY;
+                    this.x += this.dx;
+                    this.y += this.dy;
+                },
+
+                draw: function() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            };
+        }
+
+        // --- Event Listeners ---
+        rotationSlider.addEventListener('input', (e) => {
+            const newSpeed = parseFloat(e.target.value);
+            hexagon.rotationSpeed = newSpeed;
+            speedValueSpan.textContent = newSpeed.toFixed(3);
+        });
+
+        addBallButton.addEventListener('click', () => {
+            if (balls.length < 50) { // Add a reasonable limit
+                balls.push(createBall());
+            }
+        });
+
+        // --- Collision Logic ---
+        // The function now takes a specific 'ball' object to check
+        function handleCollisions(ball) {
+            const vertices = hexagon.getVertices();
+
+            for (let i = 0; i < 6; i++) {
+                const v1 = vertices[i];
+                const v2 = vertices[(i + 1) % 6];
+
+                const wall_dx = v2.x - v1.x;
+                const wall_dy = v2.y - v1.y;
+
+                const lineLengthSq = wall_dx * wall_dx + wall_dy * wall_dy;
+                let t = ((ball.x - v1.x) * wall_dx + (ball.y - v1.y) * wall_dy) / lineLengthSq;
+                t = Math.max(0, Math.min(1, t));
+
+                const closestX = v1.x + t * wall_dx;
+                const closestY = v1.y + t * wall_dy;
+
+                const dist_dx = ball.x - closestX;
+                const dist_dy = ball.y - closestY;
+                const distance = Math.sqrt(dist_dx * dist_dx + dist_dy * dist_dy);
+
+                if (distance < ball.radius) {
+                    const overlap = ball.radius - distance;
+                    const correctionX = (dist_dx / distance) * overlap;
+                    const correctionY = (dist_dy / distance) * overlap;
+                    ball.x += correctionX;
+                    ball.y += correctionY;
+                    
+                    const normalX = -wall_dy;
+                    const normalY = wall_dx;
+                    const normLength = Math.sqrt(normalX * normalX + normalY * normalY);
+                    const unitNormalX = normalX / normLength;
+                    const unitNormalY = normalY / normLength;
+                    
+                    const dotProduct = ball.dx * unitNormalX + ball.dy * unitNormalY;
+                    
+                    const new_dx = ball.dx - 2 * dotProduct * unitNormalX;
+                    const new_dy = ball.dy - 2 * dotProduct * unitNormalY;
+                    
+                    ball.dx = new_dx * FRICTION;
+                    ball.dy = new_dy * FRICTION;
+                }
+            }
+        }
+
+        // --- Main Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update hexagon
+            hexagon.update();
+            hexagon.draw();
+
+            // Update and draw all balls
+            balls.forEach(ball => {
+                ball.update();
+                handleCollisions(ball); // Pass each ball to the collision handler
+                ball.draw();
+            });
+        }
+
+        // --- Initialization ---
+        balls.push(createBall()); // Start with one ball
+        animate(); // Start the animation
+    </script>
+</body>
+</html>
