@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回転する六角形とボール</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: sans-serif;
+        }
+        canvas {
+            border: 1px solid #333;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .controls label {
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+    <div class="controls">
+        <label for="rotationSpeed">回転速度:</label>
+        <input type="range" id="rotationSpeed" min="-0.1" max="0.1" step="0.005" value="0.01">
+        <button id="addBallBtn">ボールを追加</button>
+    </div>
+
+<script>
+    // ----------------------------------------
+    // 初期設定
+    // ----------------------------------------
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // キャンバスのサイズをウィンドウサイズに合わせて調整
+    const size = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.7);
+    canvas.width = size;
+    canvas.height = size;
+
+    // 物理定数
+    const GRAVITY = 0.2;
+    const RESTITUTION = 0.8; // 反発係数 (1に近いほどよく跳ねる)
+
+    // オブジェクトの配列
+    let balls = [];
+
+    // 六角形の設定
+    const hexagon = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        size: canvas.width / 2 - 20, // 六角形の半径
+        angle: 0,
+        rotationSpeed: 0.01
+    };
+
+    // ----------------------------------------
+    // クラス定義
+    // ----------------------------------------
+
+    class Ball {
+        constructor(x, y, radius, color) {
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+            this.color = color;
+            this.vx = (Math.random() - 0.5) * 5;
+            this.vy = (Math.random() - 0.5) * 5;
+        }
+
+        // ボールの描画
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        // ボールの物理的な更新
+        update() {
+            // 重力を適用
+            this.vy += GRAVITY;
+
+            // 速度に基づいて位置を更新
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+    }
+
+    // ----------------------------------------
+    // 関数
+    // ----------------------------------------
+
+    // 六角形の頂点座標を計算
+    function getHexagonVertices() {
+        const vertices = [];
+        for (let i = 0; i < 6; i++) {
+            const angle = hexagon.angle + (Math.PI / 3) * i;
+            const x = hexagon.x + hexagon.size * Math.cos(angle);
+            const y = hexagon.y + hexagon.size * Math.sin(angle);
+            vertices.push({ x, y });
+        }
+        return vertices;
+    }
+
+    // 六角形の描画
+    function drawHexagon() {
+        const vertices = getHexagonVertices();
+        ctx.beginPath();
+        ctx.moveTo(vertices[0].x, vertices[0].y);
+        for (let i = 1; i < 6; i++) {
+            ctx.lineTo(vertices[i].x, vertices[i].y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+    }
+    
+    // 衝突検知と応答
+    function handleCollisions() {
+        const vertices = getHexagonVertices();
+
+        balls.forEach(ball => {
+            for (let i = 0; i < 6; i++) {
+                const p1 = vertices[i];
+                const p2 = vertices[(i + 1) % 6];
+
+                // --- 点（ボールの中心）と線分（壁）の最短距離を計算 ---
+                const segVecX = p2.x - p1.x;
+                const segVecY = p2.y - p1.y;
+                const toBallVecX = ball.x - p1.x;
+                const toBallVecY = ball.y - p1.y;
+
+                const segLengthSq = segVecX * segVecX + segVecY * segVecY;
+                let t = (toBallVecX * segVecX + toBallVecY * segVecY) / segLengthSq;
+                t = Math.max(0, Math.min(1, t)); // tを0-1の範囲にクランプ
+
+                const closestX = p1.x + t * segVecX;
+                const closestY = p1.y + t * segVecY;
+
+                const distVecX = ball.x - closestX;
+                const distVecY = ball.y - closestY;
+                const distance = Math.sqrt(distVecX * distVecX + distVecY * distVecY);
+
+                // --- 衝突しているか判定 ---
+                if (distance < ball.radius) {
+                    // 1. めり込み補正
+                    const overlap = ball.radius - distance;
+                    const normalX = distVecX / distance;
+                    const normalY = distVecY / distance;
+                    ball.x += normalX * overlap;
+                    ball.y += normalY * overlap;
+
+                    // 2. 速度の反射
+                    const velDotNormal = ball.vx * normalX + ball.vy * normalY;
+                    
+                    // 壁に向かっている場合のみ反射
+                    if (velDotNormal < 0) {
+                        const impulseX = -(1 + RESTITUTION) * velDotNormal * normalX;
+                        const impulseY = -(1 + RESTITUTION) * velDotNormal * normalY;
+                        ball.vx += impulseX;
+                        ball.vy += impulseY;
+                    }
+                }
+            }
+        });
+    }
+
+    // 新しいボールを生成する関数
+    function addBall() {
+        const radius = 10 + Math.random() * 5;
+        const x = hexagon.x;
+        const y = hexagon.y;
+        const color = `hsl(${Math.random() * 360}, 90%, 60%)`;
+        balls.push(new Ball(x, y, radius, color));
+    }
+
+    // ----------------------------------------
+    // アニメーションループ
+    // ----------------------------------------
+    function animate() {
+        // 前のフレームをクリア
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 六角形の角度を更新
+        hexagon.angle += hexagon.rotationSpeed;
+
+        // 六角形を描画
+        drawHexagon();
+
+        // 各ボールを更新・描画
+        balls.forEach(ball => {
+            ball.update();
+            ball.draw();
+        });
+
+        // 衝突処理
+        handleCollisions();
+        
+        // 次のフレームを要求
+        requestAnimationFrame(animate);
+    }
+
+    // ----------------------------------------
+    // UIイベントリスナー
+    // ----------------------------------------
+    const rotationSlider = document.getElementById('rotationSpeed');
+    rotationSlider.addEventListener('input', (e) => {
+        hexagon.rotationSpeed = parseFloat(e.target.value);
+    });
+
+    const addBallBtn = document.getElementById('addBallBtn');
+    addBallBtn.addEventListener('click', addBall);
+
+    // ----------------------------------------
+    // 初期化と実行
+    // ----------------------------------------
+    // 最初にいくつかのボールを生成
+    for (let i = 0; i < 5; i++) {
+        addBall();
+    }
+    
+    // アニメーション開始
+    animate();
+
+</script>
+
+</body>
+</html>
